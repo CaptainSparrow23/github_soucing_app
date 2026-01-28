@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { existsSync } from "fs";
+import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
+import { tmpdir } from "os";
 
 export async function POST(req: Request) {
   const { repoUrl } = await req.json();
@@ -18,7 +19,10 @@ export async function POST(req: Request) {
   }
   const owner = match[1];
   const repo = match[2];
-  const baseDir = "C:/Users/Thomas/Desktop/cloned_repos";
+  const baseDir = process.env.CLONE_BASE_DIR || join(tmpdir(), "cloned_repos");
+  if (!existsSync(baseDir)) {
+    mkdirSync(baseDir, { recursive: true });
+  }
   const targetDir = join(baseDir, `${owner}__${repo}`);
 
   // Clone if not already present

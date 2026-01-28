@@ -3,21 +3,28 @@ import { NextResponse } from "next/server";
 // Use process.env for GitHub token
 const GITHUB_TOKEN = process.env.GITHUB_SECRET_TOKEN;
 
+const MAX_COMMITS_PAGES = 10;
+
 // Helper to extract owner/repo from URL
 function parseRepoUrl(url: string) {
-  const match = url.match(/github.com\/(.+?)\/(.+?)(?:\.|\/|$)/);
+  const match = url.match(/github.com\/(.+?)\/(.+?)(?:\.git|\/|$)/);
   if (!match) return null;
   return { owner: match[1], repo: match[2] };
+}
+
+function getNextPageUrl(linkHeader: string | null): string | null {
+  if (!linkHeader) return null;
+  const parts = linkHeader.split(',').map(part => part.trim());
+  for (const part of parts) {
+    const match = part.match(/<([^>]+)>;\s*rel="next"/);
+    if (match) return match[1];
+  }
+  return null;
 }
 
 export async function POST(req: Request) {
   const { repoUrl } = await req.json();
   let logs = "";
-  function parseRepoUrl(url: string) {
-    const match = url.match(/github.com\/(.+?)\/(.+?)(?:\.|\/|$)/);
-    if (!match) return null;
-    return { owner: match[1], repo: match[2] };
-  }
   logs += `Input repoUrl: ${repoUrl}\n`;
   const repo = parseRepoUrl(repoUrl);
   logs += `Parsed repo: ${JSON.stringify(repo)}\n`;
@@ -27,21 +34,30 @@ export async function POST(req: Request) {
   }
 
   // Get commits from GitHub API
-  const commitsUrl = `https://api.github.com/repos/${repo.owner}/${repo.repo}/commits?per_page=100`;
-  logs += `Commits API URL: ${commitsUrl}\n`;
-  const commitsRes = await fetch(commitsUrl, {
-    headers: {
-      'Accept': 'application/vnd.github.v3+json',
-      ...(GITHUB_TOKEN ? { 'Authorization': `Bearer ${GITHUB_TOKEN}` } : {})
+  const headers = {
+    'Accept': 'application/vnd.github.v3+json',
+    ...(GITHUB_TOKEN ? { 'Authorization': `Bearer ${GITHUB_TOKEN}` } : {})
+  };
+  let commitsUrl: string | null = `https://api.github.com/repos/${repo.owner}/${repo.repo}/commits?per_page=100`;
+  const commits: any[] = [];
+  let pageCount = 0;
+  while (commitsUrl && pageCount < MAX_COMMITS_PAGES) {
+    logs += `Commits API URL: ${commitsUrl}\n`;
+    const commitsRes = await fetch(commitsUrl, { headers });
+    logs += `Commits API status: ${commitsRes.status}\n`;
+    if (!commitsRes.ok) {
+      logs += `Commits API error: ${await commitsRes.text()}\n`;
+      return NextResponse.json({ error: "Failed to fetch commits", logs }, { status: 500 });
     }
-  });
-  logs += `Commits API status: ${commitsRes.status}\n`;
-  if (!commitsRes.ok) {
-    logs += `Commits API error: ${await commitsRes.text()}\n`;
-    return NextResponse.json({ error: "Failed to fetch commits", logs }, { status: 500 });
+    const pageCommits = await commitsRes.json();
+    logs += `Commits fetched: ${Array.isArray(pageCommits) ? pageCommits.length : 0}\n`;
+    if (Array.isArray(pageCommits)) {
+      commits.push(...pageCommits);
+    }
+    commitsUrl = getNextPageUrl(commitsRes.headers.get('link'));
+    pageCount++;
   }
-  const commits = await commitsRes.json();
-  logs += `Commits fetched: ${Array.isArray(commits) ? commits.length : 0}\n`;
+  logs += `Total commits collected: ${commits.length}\n`;
 
   // Map committer to C++ commit count and email
   const committerMap: Record<string, { name: string, email: string, count: number }> = {};
@@ -53,12 +69,7 @@ export async function POST(req: Request) {
     // Get files for each commit
     const commitDetailsUrl = `https://api.github.com/repos/${repo.owner}/${repo.repo}/commits/${sha}`;
     logs += `Fetching commit details: ${commitDetailsUrl}\n`;
-    const commitRes = await fetch(commitDetailsUrl, {
-      headers: {
-        'Accept': 'application/vnd.github.v3+json',
-        ...(GITHUB_TOKEN ? { 'Authorization': `Bearer ${GITHUB_TOKEN}` } : {})
-      }
-    });
+    const commitRes = await fetch(commitDetailsUrl, { headers });
     logs += `Commit details status: ${commitRes.status}\n`;
     if (!commitRes.ok) {
       logs += `Commit details error: ${await commitRes.text()}\n`;
