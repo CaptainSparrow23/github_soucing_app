@@ -1,8 +1,11 @@
-"use client"
-import { useState } from "react";
-import  LightRays  from "../components/LightRays";
+
+"use client";
+
+import { useState, useEffect } from "react";
+import LightRays from "../components/LightRays";
 
 export default function Home() {
+  // Auth is no longer required; removed auth check and login handler.
   const [repoUrl, setRepoUrl] = useState("");
   const [repoPath, setRepoPath] = useState("");
   const [loading, setLoading] = useState(false);
