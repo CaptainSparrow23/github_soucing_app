@@ -30,17 +30,11 @@ export default function Home() {
     status?: string;
   }[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const [signatureHtml, setSignatureHtml] = useState("");
+  const [templateHtml, setTemplateHtml] = useState("");
+  const [recipientSuggestion, setRecipientSuggestion] = useState("");
 
-  const signatureHtml = `
-    <p style="margin: 16px 0 0;">Best regards,</p>
-    <p style="margin: 4px 0;">C++ Developer Sourcing Team</p>
-    <p style="margin: 4px 0;">
-      <a href="https://www.microsoft.com" target="_blank" rel="noreferrer">Visit our site</a>
-    </p>
-    <p style="margin: 8px 0 0;">
-      <img src="/globe.svg" alt="Company logo" style="width: 120px; height: auto;" />
-    </p>
-  `;
+
 
   const buildDefaultBody = (name?: string) => `
     <p>Hi ${name || "there"},</p>
@@ -48,8 +42,16 @@ export default function Home() {
     ${signatureHtml}
   `;
 
+  // Hydration-safe ID generation for email tabs
+  const generateTabId = () => {
+    if (typeof window !== "undefined" && typeof crypto !== "undefined" && "randomUUID" in crypto) {
+      return crypto.randomUUID();
+    }
+    return `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+  };
+
   const createEmailTab = (seed?: Partial<{ to: string; subject: string; body: string }>) => {
-    const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}`;
+    const id = generateTabId();
     const newTab = {
       id,
       to: seed?.to || "",
@@ -102,17 +104,19 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const savedSignature = localStorage.getItem("sourcing-signature-html");
-    const savedTemplate = localStorage.getItem("sourcing-template-html");
-    const savedRecipient = localStorage.getItem("sourcing-recipient-suggestion");
-    if (savedSignature) {
-      setSignatureHtml(savedSignature);
-    }
-    if (savedTemplate) {
-      setTemplateHtml(savedTemplate);
-    }
-    if (savedRecipient) {
-      setRecipientSuggestion(savedRecipient);
+    if (typeof window !== "undefined") {
+      const savedSignature = localStorage.getItem("sourcing-signature-html");
+      const savedTemplate = localStorage.getItem("sourcing-template-html");
+      const savedRecipient = localStorage.getItem("sourcing-recipient-suggestion");
+      if (savedSignature) {
+        setSignatureHtml(savedSignature);
+      }
+      if (savedTemplate) {
+        setTemplateHtml(savedTemplate);
+      }
+      if (savedRecipient) {
+        setRecipientSuggestion(savedRecipient);
+      }
     }
   }, []);
 
