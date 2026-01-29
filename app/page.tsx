@@ -286,11 +286,10 @@ export default function Home() {
                   <span className="font-semibold">
                     {authStatus.user?.displayName || authStatus.user?.mail || authStatus.user?.userPrincipalName}
                   </span>
-                ) : (
-                  <span className="text-xs text-blue-200">Connect a Microsoft account to send emails.</span>
-                )
-              }
-            />
+                </p>
+              ) : (
+                <span className="text-xs text-blue-200">Connect a Microsoft account to send emails.</span>
+              )}
             <CardFooter className="flex flex-wrap items-center justify-between gap-4">
               {authError && <p className="text-xs text-red-300">{authError}</p>}
               {authStatus?.signedIn ? (
@@ -302,24 +301,8 @@ export default function Home() {
                   Sign in with Microsoft
                 </Button>
               )}
-            </div>
-            {authStatus?.signedIn ? (
-              <button
-                onClick={handleLogout}
-                className="rounded-lg border border-blue-800/60 bg-zinc-950 px-4 py-2 text-sm font-semibold text-blue-200 transition-colors hover:bg-blue-900"
-              >
-                Sign out
-              </button>
-            ) : (
-              <a
-                href="/api/auth/microsoft"
-                className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-900/40 transition-colors hover:bg-blue-600"
-              >
-                Sign in with Microsoft
-              </a>
-            )}
+            </CardFooter>
           </div>
-          {authError && <p className="text-xs text-red-400">{authError}</p>}
         </div>
         <div className="flex w-full flex-1 flex-col gap-6 lg:flex-row">
           <div className="w-full lg:w-3/5">
@@ -598,4 +581,3 @@ export default function Home() {
       </div>
     </FluentProvider>
   );
-}
