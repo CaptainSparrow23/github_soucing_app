@@ -13,6 +13,11 @@ const sendMail = async (
     subject: string;
     body: string;
     recipients: string[];
+    attachments?: {
+      name: string;
+      contentType: string;
+      contentBytes: string;
+    }[];
   }
 ) => {
   const response = await fetch(
@@ -27,12 +32,20 @@ const sendMail = async (
         message: {
           subject: payload.subject,
           body: {
-            contentType: "Text",
+            contentType: "HTML",
             content: payload.body
           },
           toRecipients: payload.recipients.map((address) => ({
             emailAddress: { address }
-          }))
+          })),
+          attachments: payload.attachments?.length
+            ? payload.attachments.map((attachment) => ({
+                "@odata.type": "#microsoft.graph.fileAttachment",
+                name: attachment.name,
+                contentType: attachment.contentType,
+                contentBytes: attachment.contentBytes
+              }))
+            : undefined
         },
         saveToSentItems: true
       })
@@ -68,6 +81,13 @@ export const POST = async (request: NextRequest) => {
   const to = typeof body.to === "string" ? body.to : "";
   const subject = typeof body.subject === "string" ? body.subject : "";
   const message = typeof body.body === "string" ? body.body : "";
+  const attachments =
+    Array.isArray(body.attachments) && body.attachments.length > 0
+      ? body.attachments.filter(
+          (attachment: { name?: string; contentType?: string; contentBytes?: string }) =>
+            attachment && attachment.name && attachment.contentType && attachment.contentBytes
+        )
+      : [];
 
   if (!to || !subject || !message) {
     return NextResponse.json(
@@ -121,7 +141,8 @@ export const POST = async (request: NextRequest) => {
     await sendMail(activeAccessToken, {
       subject,
       body: message,
-      recipients
+      recipients,
+      attachments
     });
   } catch (error) {
     return NextResponse.json(
