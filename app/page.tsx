@@ -101,6 +101,21 @@ export default function Home() {
     loadAuthStatus();
   }, []);
 
+  useEffect(() => {
+    const savedSignature = localStorage.getItem("sourcing-signature-html");
+    const savedTemplate = localStorage.getItem("sourcing-template-html");
+    const savedRecipient = localStorage.getItem("sourcing-recipient-suggestion");
+    if (savedSignature) {
+      setSignatureHtml(savedSignature);
+    }
+    if (savedTemplate) {
+      setTemplateHtml(savedTemplate);
+    }
+    if (savedRecipient) {
+      setRecipientSuggestion(savedRecipient);
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
