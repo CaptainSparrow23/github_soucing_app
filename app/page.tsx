@@ -21,9 +21,6 @@ export default function Home() {
     };
   } | null>(null);
   const [authError, setAuthError] = useState("");
-  const [recipientSuggestion, setRecipientSuggestion] = useState("Singapore");
-  const [templateHtml, setTemplateHtml] = useState("");
-  const [signatureHtml, setSignatureHtml] = useState("");
   const [emailTabs, setEmailTabs] = useState<{
     id: string;
     to: string;
@@ -34,16 +31,22 @@ export default function Home() {
   }[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
 
-  const buildDefaultBody = (name?: string) => {
-    if (templateHtml) {
-      return `${templateHtml}${signatureHtml}`;
-    }
-    return `
-      <p>Hi ${name || "there"},</p>
-      <p>I found your C++ contributions and wanted to reach out about opportunities.</p>
-      ${signatureHtml}
-    `;
-  };
+  const signatureHtml = `
+    <p style="margin: 16px 0 0;">Best regards,</p>
+    <p style="margin: 4px 0;">C++ Developer Sourcing Team</p>
+    <p style="margin: 4px 0;">
+      <a href="https://www.microsoft.com" target="_blank" rel="noreferrer">Visit our site</a>
+    </p>
+    <p style="margin: 8px 0 0;">
+      <img src="/globe.svg" alt="Company logo" style="width: 120px; height: auto;" />
+    </p>
+  `;
+
+  const buildDefaultBody = (name?: string) => `
+    <p>Hi ${name || "there"},</p>
+    <p>I found your C++ contributions and wanted to reach out about opportunities.</p>
+    ${signatureHtml}
+  `;
 
   const createEmailTab = (seed?: Partial<{ to: string; subject: string; body: string }>) => {
     const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}`;
@@ -210,17 +213,6 @@ export default function Home() {
 
   const activeTab = emailTabs.find((tab) => tab.id === activeTabId) || null;
 
-  const handleSaveContent = () => {
-    localStorage.setItem("sourcing-signature-html", signatureHtml);
-    localStorage.setItem("sourcing-template-html", templateHtml);
-    localStorage.setItem("sourcing-recipient-suggestion", recipientSuggestion);
-  };
-
-  const applySavedTemplate = () => {
-    if (!activeTab) return;
-    updateEmailTab(activeTab.id, { body: `${templateHtml}${signatureHtml}` });
-  };
-
   return (
     <div className="relative min-h-screen bg-zinc-900 font-sans overflow-hidden">
       {/* Light rays background effect */}
@@ -385,46 +377,6 @@ export default function Home() {
             )}
           </div>
           <div className="w-full lg:w-2/5 bg-zinc-800 border border-blue-900 rounded-lg p-4 flex flex-col gap-4 shadow-lg">
-            <div className="rounded-lg border border-blue-900 bg-zinc-900 p-4 flex flex-col gap-3">
-              <h2 className="text-base font-semibold text-blue-200">Saved outreach content</h2>
-              <label className="text-xs uppercase tracking-wide text-blue-300" htmlFor="recipient-suggestion">
-                Top recipient suggestion
-              </label>
-              <input
-                id="recipient-suggestion"
-                type="text"
-                placeholder="Singapore"
-                value={recipientSuggestion}
-                onChange={(e) => setRecipientSuggestion(e.target.value)}
-                className="border border-blue-700 rounded px-3 py-2 bg-zinc-800 text-blue-100 placeholder:text-blue-400"
-              />
-              <label className="text-xs uppercase tracking-wide text-blue-300">Email template (HTML)</label>
-              <div
-                contentEditable
-                suppressContentEditableWarning
-                onInput={(e) => setTemplateHtml((e.target as HTMLDivElement).innerHTML)}
-                className="min-h-[120px] rounded border border-blue-700 bg-zinc-800 px-3 py-2 text-blue-100 focus:outline-none focus:border-blue-400"
-                dangerouslySetInnerHTML={{ __html: templateHtml }}
-              />
-              <label className="text-xs uppercase tracking-wide text-blue-300">Signature (HTML)</label>
-              <div
-                contentEditable
-                suppressContentEditableWarning
-                onInput={(e) => setSignatureHtml((e.target as HTMLDivElement).innerHTML)}
-                className="min-h-[120px] rounded border border-blue-700 bg-zinc-800 px-3 py-2 text-blue-100 focus:outline-none focus:border-blue-400"
-                dangerouslySetInnerHTML={{ __html: signatureHtml }}
-              />
-              <button
-                type="button"
-                onClick={handleSaveContent}
-                className="self-start rounded bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800 transition-colors"
-              >
-                Save template & signature
-              </button>
-              <p className="text-xs text-blue-300">
-                Paste Outlook HTML here to reuse it across every new email tab.
-              </p>
-            </div>
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-blue-200">Email tabs</h2>
               <button
@@ -479,7 +431,8 @@ export default function Home() {
                   required
                 />
                 <datalist id="recipient-suggestions">
-                  <option value={recipientSuggestion || "Singapore"}>{recipientSuggestion || "Singapore"}</option>
+                  <option value="Singapore">Singapore</option>
+                  <option value="singapore-team@example.com">Singapore team</option>
                 </datalist>
                 <label className="text-sm text-blue-200" htmlFor="email-subject">
                   Subject
@@ -502,13 +455,6 @@ export default function Home() {
                   className="min-h-[220px] rounded border border-blue-700 bg-zinc-900 px-3 py-2 text-blue-100 focus:outline-none focus:border-blue-400"
                   dangerouslySetInnerHTML={{ __html: activeTab.body }}
                 />
-                <button
-                  type="button"
-                  onClick={applySavedTemplate}
-                  className="self-start rounded bg-zinc-900 px-3 py-2 text-xs font-semibold text-blue-200 border border-blue-700 hover:bg-blue-800 transition-colors"
-                >
-                  Apply saved template + signature
-                </button>
                 <label className="text-sm text-blue-200" htmlFor="email-attachments">
                   Attachments
                 </label>
