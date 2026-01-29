@@ -1,9 +1,11 @@
+import { createHash, randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 
 const ACCESS_TOKEN_COOKIE = "ms_access_token";
 const REFRESH_TOKEN_COOKIE = "ms_refresh_token";
 const EXPIRES_AT_COOKIE = "ms_expires_at";
 const STATE_COOKIE = "ms_oauth_state";
+const CODE_VERIFIER_COOKIE = "ms_code_verifier";
 
 const MICROSOFT_SCOPES = [
   "openid",
@@ -44,16 +46,22 @@ export const microsoftCookieNames = {
   access: ACCESS_TOKEN_COOKIE,
   refresh: REFRESH_TOKEN_COOKIE,
   expiresAt: EXPIRES_AT_COOKIE,
-  state: STATE_COOKIE
+  state: STATE_COOKIE,
+  codeVerifier: CODE_VERIFIER_COOKIE
 };
 
 export const microsoftOAuthScopes = MICROSOFT_SCOPES;
 
 export const getMicrosoftOAuthConfig = (): MicrosoftOAuthConfig | null => {
-  const tenantId = process.env.OUTLOOK_TENANT_ID || "common";
-  const clientId = process.env.OUTLOOK_CLIENT_ID;
-  const clientSecret = process.env.OUTLOOK_CLIENT_SECRET;
-  const redirectUri = process.env.MS_REDIRECT_URI;
+  const tenantId =
+    process.env.MICROSOFT_TENANT_ID ||
+    process.env.OUTLOOK_TENANT_ID ||
+    "common";
+  const clientId = process.env.MICROSOFT_CLIENT_ID || process.env.OUTLOOK_CLIENT_ID;
+  const clientSecret =
+    process.env.MICROSOFT_CLIENT_SECRET || process.env.OUTLOOK_CLIENT_SECRET;
+  const redirectUri =
+    process.env.MICROSOFT_REDIRECT_URI || process.env.MS_REDIRECT_URI;
 
   if (!clientId || !clientSecret || !redirectUri) {
     return null;
@@ -69,7 +77,8 @@ export const getMicrosoftOAuthConfig = (): MicrosoftOAuthConfig | null => {
 
 export const buildMicrosoftAuthorizeUrl = (
   config: MicrosoftOAuthConfig,
-  state: string
+  state: string,
+  codeChallenge?: string
 ) => {
   const authorizeUrl = new URL(
     `https://login.microsoftonline.com/${config.tenantId}/oauth2/v2.0/authorize`
@@ -80,7 +89,35 @@ export const buildMicrosoftAuthorizeUrl = (
   authorizeUrl.searchParams.set("response_mode", "query");
   authorizeUrl.searchParams.set("scope", MICROSOFT_SCOPES);
   authorizeUrl.searchParams.set("state", state);
+  if (codeChallenge) {
+    authorizeUrl.searchParams.set("code_challenge", codeChallenge);
+    authorizeUrl.searchParams.set("code_challenge_method", "S256");
+  }
   return authorizeUrl.toString();
+};
+
+const toBase64Url = (value: Buffer) =>
+  value
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+
+const createCodeVerifier = () => toBase64Url(randomBytes(32));
+
+const createCodeChallenge = (verifier: string) =>
+  toBase64Url(createHash("sha256").update(verifier).digest());
+
+export const createMicrosoftAuthRequest = (config: MicrosoftOAuthConfig) => {
+  const state = crypto.randomUUID();
+  const codeVerifier = createCodeVerifier();
+  const codeChallenge = createCodeChallenge(codeVerifier);
+  const authorizeUrl = buildMicrosoftAuthorizeUrl(
+    config,
+    state,
+    codeChallenge
+  );
+  return { state, codeVerifier, authorizeUrl };
 };
 
 const normalizeTokenResponse = (data: TokenResponse): TokenData => {
@@ -94,7 +131,8 @@ const normalizeTokenResponse = (data: TokenResponse): TokenData => {
 
 export const exchangeCodeForToken = async (
   config: MicrosoftOAuthConfig,
-  code: string
+  code: string,
+  codeVerifier: string
 ) => {
   const tokenUrl = `https://login.microsoftonline.com/${config.tenantId}/oauth2/v2.0/token`;
   const body = new URLSearchParams({
@@ -103,7 +141,8 @@ export const exchangeCodeForToken = async (
     grant_type: "authorization_code",
     code,
     redirect_uri: config.redirectUri,
-    scope: MICROSOFT_SCOPES
+    scope: MICROSOFT_SCOPES,
+    code_verifier: codeVerifier
   });
 
   const response = await fetch(tokenUrl, {
@@ -212,4 +251,24 @@ export const getMicrosoftOAuthState = (request: NextRequest) =>
 
 export const clearMicrosoftOAuthState = (response: NextResponse) => {
   response.cookies.set(STATE_COOKIE, "", { ...cookieOptions(), maxAge: 0 });
+};
+
+export const setMicrosoftOAuthCodeVerifier = (
+  response: NextResponse,
+  verifier: string
+) => {
+  response.cookies.set(CODE_VERIFIER_COOKIE, verifier, {
+    ...cookieOptions(),
+    maxAge: 60 * 10
+  });
+};
+
+export const getMicrosoftOAuthCodeVerifier = (request: NextRequest) =>
+  request.cookies.get(CODE_VERIFIER_COOKIE)?.value;
+
+export const clearMicrosoftOAuthCodeVerifier = (response: NextResponse) => {
+  response.cookies.set(CODE_VERIFIER_COOKIE, "", {
+    ...cookieOptions(),
+    maxAge: 0
+  });
 };

@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import {
-  buildMicrosoftAuthorizeUrl,
+  createMicrosoftAuthRequest,
   getMicrosoftOAuthConfig,
+  setMicrosoftOAuthCodeVerifier,
   setMicrosoftOAuthState
 } from "../../../lib/microsoftAuth";
 
-export const GET = () => {
+export const GET = async () => {
   const config = getMicrosoftOAuthConfig();
 
   if (!config) {
@@ -15,9 +16,9 @@ export const GET = () => {
     );
   }
 
-  const state = crypto.randomUUID();
-  const authorizeUrl = buildMicrosoftAuthorizeUrl(config, state);
+  const { state, codeVerifier, authorizeUrl } = createMicrosoftAuthRequest(config);
   const response = NextResponse.redirect(authorizeUrl);
   setMicrosoftOAuthState(response, state);
+  setMicrosoftOAuthCodeVerifier(response, codeVerifier);
   return response;
 };
