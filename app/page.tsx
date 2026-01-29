@@ -32,15 +32,27 @@ export default function Home() {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [signatureHtml, setSignatureHtml] = useState("");
   const [templateHtml, setTemplateHtml] = useState("");
-  const [recipientSuggestion, setRecipientSuggestion] = useState("");
 
-
-
-  const buildDefaultBody = (name?: string) => `
-    <p>Hi ${name || "there"},</p>
-    <p>I found your C++ contributions and wanted to reach out about opportunities.</p>
-    ${signatureHtml}
-  `;
+  const buildDefaultBody = (name?: string) => {
+    const signature = signatureHtml?.trim();
+    const template = templateHtml?.trim();
+    if (template) {
+      let body = template.replace(/{{\s*name\s*}}/gi, name || "there");
+      if (signature) {
+        const hasSignatureToken = /{{\s*signature\s*}}/gi.test(body);
+        body = body.replace(/{{\s*signature\s*}}/gi, signature);
+        if (!hasSignatureToken) {
+          body = `${body}\n${signature}`;
+        }
+      }
+      return body;
+    }
+    return `
+      <p>Hi ${name || "there"},</p>
+      <p>I found your C++ contributions and wanted to reach out about opportunities.</p>
+      ${signature || ""}
+    `;
+  };
 
   // Hydration-safe ID generation for email tabs
   const generateTabId = () => {
@@ -107,18 +119,26 @@ export default function Home() {
     if (typeof window !== "undefined") {
       const savedSignature = localStorage.getItem("sourcing-signature-html");
       const savedTemplate = localStorage.getItem("sourcing-template-html");
-      const savedRecipient = localStorage.getItem("sourcing-recipient-suggestion");
       if (savedSignature) {
         setSignatureHtml(savedSignature);
       }
       if (savedTemplate) {
         setTemplateHtml(savedTemplate);
       }
-      if (savedRecipient) {
-        setRecipientSuggestion(savedRecipient);
-      }
     }
   }, []);
+
+  const persistSignature = () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("sourcing-signature-html", signatureHtml);
+    }
+  };
+
+  const persistTemplate = () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("sourcing-template-html", templateHtml);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -237,18 +257,18 @@ export default function Home() {
           saturation={1}
         />
       </div>
-      <div className="relative z-10 flex min-h-screen w-full flex-col gap-6 px-6 py-10">
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-8 px-6 py-12">
         <div className="flex flex-col gap-2">
           <h1 className="text-4xl font-extrabold text-blue-300">C++ Developer Sourcing Portal</h1>
-          <p className="text-blue-200 max-w-3xl">
+          <p className="text-blue-200 max-w-3xl text-base leading-relaxed">
             Paste a repository URL on the left, review the contributors table below, and open multiple email tabs on the
             right for outreach.
           </p>
         </div>
-        <div className="w-full max-w-3xl bg-zinc-800 rounded-lg shadow-lg p-4 flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-4">
+        <div className="w-full max-w-3xl rounded-2xl border border-blue-900/60 bg-zinc-900/80 p-5 shadow-xl backdrop-blur">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-sm uppercase tracking-wide text-blue-300">Microsoft Email</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-blue-400">Microsoft Email</p>
               {authStatus?.signedIn ? (
                 <p className="text-blue-100 text-sm">
                   Signed in as{" "}
@@ -263,14 +283,14 @@ export default function Home() {
             {authStatus?.signedIn ? (
               <button
                 onClick={handleLogout}
-                className="px-3 py-2 rounded bg-zinc-900 text-blue-200 border border-blue-700 hover:bg-blue-800 transition-colors"
+                className="rounded-lg border border-blue-800/60 bg-zinc-950 px-4 py-2 text-sm font-semibold text-blue-200 transition-colors hover:bg-blue-900"
               >
                 Sign out
               </button>
             ) : (
               <a
                 href="/api/auth/microsoft"
-                className="px-3 py-2 rounded bg-blue-700 text-white font-semibold hover:bg-blue-800 transition-colors"
+                className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-900/40 transition-colors hover:bg-blue-600"
               >
                 Sign in with Microsoft
               </a>
@@ -283,22 +303,26 @@ export default function Home() {
             <div className="flex gap-4">
               <button
                 onClick={() => setMode('api')}
-                className={`px-4 py-2 rounded-t-lg font-semibold transition-colors ${
-                  mode === 'api' ? 'bg-blue-700 text-white' : 'bg-zinc-800 text-blue-300 hover:bg-blue-800'
+                className={`rounded-t-xl px-4 py-2 font-semibold transition-colors ${
+                  mode === 'api'
+                    ? 'bg-blue-700 text-white shadow-lg shadow-blue-900/30'
+                    : 'bg-zinc-900 text-blue-300 hover:bg-blue-900'
                 }`}
               >
                 GitHub API
               </button>
               <button
                 onClick={() => setMode('clone')}
-                className={`px-4 py-2 rounded-t-lg font-semibold transition-colors ${
-                  mode === 'clone' ? 'bg-blue-700 text-white' : 'bg-zinc-800 text-blue-300 hover:bg-blue-800'
+                className={`rounded-t-xl px-4 py-2 font-semibold transition-colors ${
+                  mode === 'clone'
+                    ? 'bg-blue-700 text-white shadow-lg shadow-blue-900/30'
+                    : 'bg-zinc-900 text-blue-300 hover:bg-blue-900'
                 }`}
               >
                 Local Git
               </button>
             </div>
-            <div className="w-full p-6 mb-4 bg-zinc-800 rounded-lg shadow-lg">
+            <div className="w-full rounded-b-2xl rounded-tr-2xl border border-blue-900/60 bg-zinc-900/80 p-6 shadow-xl">
               {mode === 'api' && (
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                   <input
@@ -306,12 +330,12 @@ export default function Home() {
                     placeholder="Paste GitHub repo URL..."
                     value={repoUrl}
                     onChange={e => setRepoUrl(e.target.value)}
-                    className="border-2 border-blue-700 rounded px-4 py-2 text-lg focus:outline-none focus:border-blue-400 bg-zinc-900 text-blue-100 placeholder:text-blue-400"
+                    className="rounded-lg border border-blue-700/70 bg-zinc-950 px-4 py-2 text-base text-blue-100 placeholder:text-blue-400 focus:border-blue-400 focus:outline-none"
                     required
                   />
                   <button
                     type="submit"
-                    className="bg-blue-700 text-white rounded px-4 py-2 font-semibold hover:bg-blue-800 disabled:bg-blue-300 transition-colors"
+                    className="rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white shadow-lg shadow-blue-900/40 transition-colors hover:bg-blue-600 disabled:bg-blue-300"
                     disabled={loading}
                   >
                     {loading ? "Generating..." : "Generate"}
@@ -325,12 +349,12 @@ export default function Home() {
                     placeholder="Paste GitHub repo URL to analyze (will use local if exists)"
                     value={repoUrl}
                     onChange={e => setRepoUrl(e.target.value)}
-                    className="border-2 border-blue-700 rounded px-4 py-2 text-lg focus:outline-none focus:border-blue-400 bg-zinc-900 text-blue-100 placeholder:text-blue-400"
+                    className="rounded-lg border border-blue-700/70 bg-zinc-950 px-4 py-2 text-base text-blue-100 placeholder:text-blue-400 focus:border-blue-400 focus:outline-none"
                     required
                   />
                   <button
                     type="submit"
-                    className="bg-blue-700 text-white rounded px-4 py-2 font-semibold hover:bg-blue-800 disabled:bg-blue-300 transition-colors"
+                    className="rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white shadow-lg shadow-blue-900/40 transition-colors hover:bg-blue-600 disabled:bg-blue-300"
                     disabled={loading}
                   >
                     {loading ? "Analyzing..." : "Analyze"}
@@ -341,14 +365,15 @@ export default function Home() {
             {error && <p className="text-red-400 mt-2">{error}</p>}
             {logs && (
               <div
-                className="mt-4 w-full bg-zinc-800 border border-blue-900 rounded p-4 text-xs overflow-auto text-blue-200"
+                className="mt-4 w-full rounded-xl border border-blue-900/60 bg-zinc-900/70 p-4 text-xs text-blue-200"
                 style={{ maxHeight: 200 }}
               >
                 <pre>{logs}</pre>
               </div>
             )}
             {results.length > 0 && (
-              <table className="mt-8 w-full border-collapse bg-zinc-900 rounded shadow-lg">
+              <div className="mt-8 overflow-hidden rounded-2xl border border-blue-900/60 bg-zinc-900/90 shadow-xl">
+                <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-blue-900">
                     <th className="border px-2 py-2 text-blue-200">Name</th>
@@ -377,119 +402,174 @@ export default function Home() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             )}
           </div>
-          <div className="w-full lg:w-2/5 bg-zinc-800 border border-blue-900 rounded-lg p-4 flex flex-col gap-4 shadow-lg">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-blue-200">Email tabs</h2>
-              <button
-                type="button"
-                onClick={() => createEmailTab()}
-                className="px-3 py-1.5 rounded bg-blue-700 text-white text-sm font-semibold hover:bg-blue-800 transition-colors"
-              >
-                New email
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {emailTabs.length === 0 && (
-                <p className="text-sm text-blue-300">Select an email from the table to open a tab.</p>
-              )}
-              {emailTabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTabId(tab.id)}
-                  className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs transition-colors ${
-                    tab.id === activeTabId
-                      ? "bg-blue-700 text-white border-blue-500"
-                      : "bg-zinc-900 text-blue-200 border-blue-800 hover:bg-blue-900"
-                  }`}
-                >
-                  <span className="max-w-[140px] truncate">{tab.to || "New email"}</span>
-                  <span
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      removeEmailTab(tab.id);
-                    }}
-                    className="text-xs text-blue-200 hover:text-white"
+          <div className="w-full lg:w-2/5 flex flex-col gap-5">
+            <div className="rounded-2xl border border-blue-900/60 bg-zinc-900/80 p-4 shadow-xl">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-blue-200">Email defaults</h2>
+                  <p className="text-xs text-blue-300">
+                    Saved locally. Use {"{{name}}"} and {"{{signature}}"} tokens.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={persistTemplate}
+                    className="rounded-lg border border-blue-800/60 bg-zinc-950 px-3 py-1.5 text-xs font-semibold text-blue-200 transition-colors hover:bg-blue-900"
                   >
-                    ✕
-                  </span>
-                </button>
-              ))}
+                    Save template
+                  </button>
+                  <button
+                    type="button"
+                    onClick={persistSignature}
+                    className="rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-blue-600"
+                  >
+                    Save signature
+                  </button>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-4">
+                <div className="grid gap-2">
+                  <label className="text-sm text-blue-200" htmlFor="email-template">
+                    Email template (HTML)
+                  </label>
+                  <textarea
+                    id="email-template"
+                    value={templateHtml}
+                    onChange={(e) => setTemplateHtml(e.target.value)}
+                    placeholder="<p>Hi {{name}},</p><p>...</p>{{signature}}"
+                    className="min-h-[140px] rounded-lg border border-blue-800/70 bg-zinc-950 px-3 py-2 text-sm text-blue-100 placeholder:text-blue-500 focus:border-blue-400 focus:outline-none"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-sm text-blue-200" htmlFor="email-signature">
+                    Signature (HTML)
+                  </label>
+                  <textarea
+                    id="email-signature"
+                    value={signatureHtml}
+                    onChange={(e) => setSignatureHtml(e.target.value)}
+                    placeholder="<p>Best regards,<br/>Your Name</p>"
+                    className="min-h-[100px] rounded-lg border border-blue-800/70 bg-zinc-950 px-3 py-2 text-sm text-blue-100 placeholder:text-blue-500 focus:border-blue-400 focus:outline-none"
+                  />
+                </div>
+              </div>
             </div>
-            {activeTab && authStatus?.signedIn ? (
-              <div className="flex flex-col gap-3">
-                <label className="text-sm text-blue-200" htmlFor="email-to">
-                  To
-                </label>
-                <input
-                  id="email-to"
-                  type="text"
-                  list="recipient-suggestions"
-                  placeholder="Recipient email(s), comma separated"
-                  value={activeTab.to}
-                  onChange={(e) => updateEmailTab(activeTab.id, { to: e.target.value })}
-                  className="border border-blue-700 rounded px-3 py-2 bg-zinc-900 text-blue-100 placeholder:text-blue-400"
-                  required
-                />
-                <datalist id="recipient-suggestions">
-                  <option value="Singapore">Singapore</option>
-                  <option value="singapore-team@example.com">Singapore team</option>
-                </datalist>
-                <label className="text-sm text-blue-200" htmlFor="email-subject">
-                  Subject
-                </label>
-                <input
-                  id="email-subject"
-                  type="text"
-                  placeholder="Subject"
-                  value={activeTab.subject}
-                  onChange={(e) => updateEmailTab(activeTab.id, { subject: e.target.value })}
-                  className="border border-blue-700 rounded px-3 py-2 bg-zinc-900 text-blue-100 placeholder:text-blue-400"
-                  required
-                />
-                <label className="text-sm text-blue-200">Email body (HTML supported)</label>
-                <div
-                  key={activeTab.id}
-                  contentEditable
-                  suppressContentEditableWarning
-                  onInput={(e) => updateEmailTab(activeTab.id, { body: (e.target as HTMLDivElement).innerHTML })}
-                  className="min-h-[220px] rounded border border-blue-700 bg-zinc-900 px-3 py-2 text-blue-100 focus:outline-none focus:border-blue-400"
-                  dangerouslySetInnerHTML={{ __html: activeTab.body }}
-                />
-                <label className="text-sm text-blue-200" htmlFor="email-attachments">
-                  Attachments
-                </label>
-                <input
-                  id="email-attachments"
-                  type="file"
-                  multiple
-                  onChange={(e) => updateEmailTab(activeTab.id, { attachments: Array.from(e.target.files || []) })}
-                  className="text-sm text-blue-200"
-                />
-                {activeTab.attachments.length > 0 && (
-                  <ul className="text-xs text-blue-200">
-                    {activeTab.attachments.map((file) => (
-                      <li key={file.name}>{file.name}</li>
-                    ))}
-                  </ul>
-                )}
+            <div className="flex flex-col gap-4 rounded-2xl border border-blue-900/60 bg-zinc-900/80 p-4 shadow-xl">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-blue-200">Email tabs</h2>
                 <button
                   type="button"
-                  onClick={() => handleSendEmail(activeTab.id)}
-                  className="bg-blue-700 text-white rounded px-4 py-2 font-semibold hover:bg-blue-800 disabled:bg-blue-300 transition-colors"
+                  onClick={() => createEmailTab()}
+                  className="rounded-lg bg-blue-700 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-blue-600"
                 >
-                  Send email
+                  New email
                 </button>
-                {activeTab.status && <p className="text-sm text-blue-200">{activeTab.status}</p>}
               </div>
-            ) : (
-              <p className="text-sm text-blue-200">
-                {authStatus?.signedIn ? "Select an email tab to start composing." : "Sign in to Microsoft to send emails."}
-              </p>
-            )}
+              <div className="flex flex-wrap gap-2">
+                {emailTabs.length === 0 && (
+                  <p className="text-sm text-blue-300">Select an email from the table to open a tab.</p>
+                )}
+                {emailTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTabId(tab.id)}
+                    className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs transition-colors ${
+                      tab.id === activeTabId
+                        ? "border-blue-500 bg-blue-700 text-white"
+                        : "border-blue-800 bg-zinc-950 text-blue-200 hover:bg-blue-900"
+                    }`}
+                  >
+                    <span className="max-w-[140px] truncate">{tab.to || "New email"}</span>
+                    <span
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        removeEmailTab(tab.id);
+                      }}
+                      className="text-xs text-blue-200 hover:text-white"
+                    >
+                      ✕
+                    </span>
+                  </button>
+                ))}
+              </div>
+              {activeTab && authStatus?.signedIn ? (
+                <div className="flex flex-col gap-3">
+                  <label className="text-sm text-blue-200" htmlFor="email-to">
+                    To
+                  </label>
+                  <input
+                    id="email-to"
+                    type="text"
+                    list="recipient-suggestions"
+                    placeholder="Recipient email(s), comma separated"
+                    value={activeTab.to}
+                    onChange={(e) => updateEmailTab(activeTab.id, { to: e.target.value })}
+                    className="rounded-lg border border-blue-800/70 bg-zinc-950 px-3 py-2 text-blue-100 placeholder:text-blue-400 focus:border-blue-400 focus:outline-none"
+                    required
+                  />
+                  <datalist id="recipient-suggestions">
+                    <option value="Singapore">Singapore</option>
+                    <option value="singapore-team@example.com">Singapore team</option>
+                  </datalist>
+                  <label className="text-sm text-blue-200" htmlFor="email-subject">
+                    Subject
+                  </label>
+                  <input
+                    id="email-subject"
+                    type="text"
+                    placeholder="Subject"
+                    value={activeTab.subject}
+                    onChange={(e) => updateEmailTab(activeTab.id, { subject: e.target.value })}
+                    className="rounded-lg border border-blue-800/70 bg-zinc-950 px-3 py-2 text-blue-100 placeholder:text-blue-400 focus:border-blue-400 focus:outline-none"
+                    required
+                  />
+                  <label className="text-sm text-blue-200">Email body (HTML supported)</label>
+                  <div
+                    key={activeTab.id}
+                    contentEditable
+                    suppressContentEditableWarning
+                    onInput={(e) => updateEmailTab(activeTab.id, { body: (e.target as HTMLDivElement).innerHTML })}
+                    className="min-h-[220px] rounded-lg border border-blue-800/70 bg-zinc-950 px-3 py-2 text-blue-100 focus:border-blue-400 focus:outline-none"
+                    dangerouslySetInnerHTML={{ __html: activeTab.body }}
+                  />
+                  <label className="text-sm text-blue-200" htmlFor="email-attachments">
+                    Attachments
+                  </label>
+                  <input
+                    id="email-attachments"
+                    type="file"
+                    multiple
+                    onChange={(e) => updateEmailTab(activeTab.id, { attachments: Array.from(e.target.files || []) })}
+                    className="text-sm text-blue-200"
+                  />
+                  {activeTab.attachments.length > 0 && (
+                    <ul className="text-xs text-blue-200">
+                      {activeTab.attachments.map((file) => (
+                        <li key={file.name}>{file.name}</li>
+                      ))}
+                    </ul>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleSendEmail(activeTab.id)}
+                    className="rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white transition-colors hover:bg-blue-600 disabled:bg-blue-300"
+                  >
+                    Send email
+                  </button>
+                  {activeTab.status && <p className="text-sm text-blue-200">{activeTab.status}</p>}
+                </div>
+              ) : (
+                <p className="text-sm text-blue-200">
+                  {authStatus?.signedIn ? "Select an email tab to start composing." : "Sign in to Microsoft to send emails."}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>
