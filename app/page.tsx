@@ -56,8 +56,6 @@ export default function Home() {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [signatureHtml, setSignatureHtml] = useState("");
   const [templateHtml, setTemplateHtml] = useState("");
-  const templateRef = useRef<HTMLDivElement | null>(null);
-  const signatureRef = useRef<HTMLDivElement | null>(null);
 
   const buildDefaultBody = (name?: string) => {
     const signature = signatureHtml?.trim();
@@ -153,18 +151,6 @@ export default function Home() {
       }
     }
   }, []);
-
-  useEffect(() => {
-    if (templateRef.current && templateRef.current.innerHTML !== templateHtml) {
-      templateRef.current.innerHTML = templateHtml;
-    }
-  }, [templateHtml]);
-
-  useEffect(() => {
-    if (signatureRef.current && signatureRef.current.innerHTML !== signatureHtml) {
-      signatureRef.current.innerHTML = signatureHtml;
-    }
-  }, [signatureHtml]);
 
   const persistSignature = () => {
     if (typeof window !== "undefined") {
@@ -568,4 +554,3 @@ export default function Home() {
       </div>
     </FluentProvider>
   );
-}
