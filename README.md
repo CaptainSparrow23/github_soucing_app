@@ -38,6 +38,8 @@ MICROSOFT_CLIENT_SECRET=your-client-secret
 MICROSOFT_REDIRECT_URI=http://localhost:3000/api/auth/microsoft/callback
 ```
 
+Legacy env vars (`OUTLOOK_*` and `MS_REDIRECT_URI`) are also supported but the `MICROSOFT_*` values take precedence.
+
 After signing in, you can send emails using the form on the home page.
 
 ## Learn More
