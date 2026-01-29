@@ -167,7 +167,7 @@ export default function Home() {
               </button>
             ) : (
               <a
-                href="/auth/microsoft"
+                href="/api/auth/microsoft"
                 className="px-3 py-2 rounded bg-blue-700 text-white font-semibold hover:bg-blue-800 transition-colors"
               >
                 Sign in with Microsoft

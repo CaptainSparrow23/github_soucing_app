@@ -50,16 +50,10 @@ export const microsoftCookieNames = {
 export const microsoftOAuthScopes = MICROSOFT_SCOPES;
 
 export const getMicrosoftOAuthConfig = (): MicrosoftOAuthConfig | null => {
-  const tenantId =
-    process.env.MICROSOFT_TENANT_ID ||
-    process.env.OUTLOOK_TENANT_ID ||
-    "common";
-  const clientId =
-    process.env.MICROSOFT_CLIENT_ID || process.env.OUTLOOK_CLIENT_ID;
-  const clientSecret =
-    process.env.MICROSOFT_CLIENT_SECRET || process.env.OUTLOOK_CLIENT_SECRET;
-  const redirectUri =
-    process.env.MICROSOFT_REDIRECT_URI || process.env.MS_REDIRECT_URI;
+  const tenantId = process.env.OUTLOOK_TENANT_ID || "common";
+  const clientId = process.env.OUTLOOK_CLIENT_ID;
+  const clientSecret = process.env.OUTLOOK_CLIENT_SECRET;
+  const redirectUri = process.env.MS_REDIRECT_URI;
 
   if (!clientId || !clientSecret || !redirectUri) {
     return null;

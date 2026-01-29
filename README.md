@@ -25,7 +25,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 This app can sign in with Microsoft and send emails as the signed-in user via Microsoft Graph.
 
 1. Create an Azure App Registration with **Web** platform support.
-2. Add a redirect URI that matches `MICROSOFT_REDIRECT_URI` (or `MS_REDIRECT_URI`) (example: `http://localhost:3000/api/auth/microsoft/callback`).
+2. Add a redirect URI that matches `MICROSOFT_REDIRECT_URI` (example: `http://localhost:3000/api/auth/microsoft/callback`).
 3. Add delegated permissions for `Mail.Send`, `User.Read`, and `offline_access`, then grant admin consent.
 4. Create a client secret and store it locally.
 
@@ -38,18 +38,7 @@ MICROSOFT_CLIENT_SECRET=your-client-secret
 MICROSOFT_REDIRECT_URI=http://localhost:3000/api/auth/microsoft/callback
 ```
 
-Alternatively, you can use the older env names already in your app:
-
-```
-OUTLOOK_TENANT_ID=common
-OUTLOOK_CLIENT_ID=your-client-id
-OUTLOOK_CLIENT_SECRET=your-client-secret
-MS_REDIRECT_URI=http://localhost:3000/api/auth/microsoft/callback
-```
-
 After signing in, you can send emails using the form on the home page.
-
-The sign-in button on the home page uses `/auth/microsoft` to start the OAuth flow (server-side redirect).
 
 ## Learn More
 
