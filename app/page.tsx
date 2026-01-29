@@ -1,7 +1,18 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import {
+  Button,
+  Card,
+  CardFooter,
+  CardHeader,
+  FluentProvider,
+  Input,
+  Tab,
+  TabList,
+  webDarkTheme
+} from "@fluentui/react-components";
 import LightRays from "../components/LightRays";
 
 export default function Home() {
@@ -275,9 +286,21 @@ export default function Home() {
                   <span className="font-semibold">
                     {authStatus.user?.displayName || authStatus.user?.mail || authStatus.user?.userPrincipalName}
                   </span>
-                </p>
+                ) : (
+                  <span className="text-xs text-blue-200">Connect a Microsoft account to send emails.</span>
+                )
+              }
+            />
+            <CardFooter className="flex flex-wrap items-center justify-between gap-4">
+              {authError && <p className="text-xs text-red-300">{authError}</p>}
+              {authStatus?.signedIn ? (
+                <Button appearance="secondary" onClick={handleLogout}>
+                  Sign out
+                </Button>
               ) : (
-                <p className="text-blue-100 text-sm">Connect a Microsoft account to send emails.</p>
+                <Button appearance="primary" as="a" href="/api/auth/microsoft">
+                  Sign in with Microsoft
+                </Button>
               )}
             </div>
             {authStatus?.signedIn ? (
@@ -573,6 +596,6 @@ export default function Home() {
           </div>
         </div>
       </div>
-    </div>
+    </FluentProvider>
   );
 }
