@@ -20,6 +20,37 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Microsoft Auth + Send Mail
+
+This app can sign in with Microsoft and send emails as the signed-in user via Microsoft Graph.
+
+1. Create an Azure App Registration with **Web** platform support.
+2. Add a redirect URI that matches `MICROSOFT_REDIRECT_URI` (or `MS_REDIRECT_URI`) (example: `http://localhost:3000/api/auth/microsoft/callback`).
+3. Add delegated permissions for `Mail.Send`, `User.Read`, and `offline_access`, then grant admin consent.
+4. Create a client secret and store it locally.
+
+Create a `.env.local` file with:
+
+```
+MICROSOFT_TENANT_ID=common
+MICROSOFT_CLIENT_ID=your-client-id
+MICROSOFT_CLIENT_SECRET=your-client-secret
+MICROSOFT_REDIRECT_URI=http://localhost:3000/api/auth/microsoft/callback
+```
+
+Alternatively, you can use the older env names already in your app:
+
+```
+OUTLOOK_TENANT_ID=common
+OUTLOOK_CLIENT_ID=your-client-id
+OUTLOOK_CLIENT_SECRET=your-client-secret
+MS_REDIRECT_URI=http://localhost:3000/api/auth/microsoft/callback
+```
+
+After signing in, you can send emails using the form on the home page.
+
+The sign-in button on the home page uses `/auth/microsoft` to start the OAuth flow (server-side redirect).
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
