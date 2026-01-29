@@ -91,9 +91,6 @@ export const buildMicrosoftAuthorizeUrl = (
   authorizeUrl.searchParams.set("response_mode", "query");
   authorizeUrl.searchParams.set("scope", MICROSOFT_SCOPES);
   authorizeUrl.searchParams.set("state", state);
-  if (MICROSOFT_PROMPT) {
-    authorizeUrl.searchParams.set("prompt", MICROSOFT_PROMPT);
-  }
   if (codeChallenge) {
     authorizeUrl.searchParams.set("code_challenge", codeChallenge);
     authorizeUrl.searchParams.set("code_challenge_method", "S256");

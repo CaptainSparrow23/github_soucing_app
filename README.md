@@ -39,7 +39,6 @@ MICROSOFT_REDIRECT_URI=http://localhost:3000/api/auth/microsoft/callback
 ```
 
 Legacy env vars (`OUTLOOK_*` and `MS_REDIRECT_URI`) are also supported but the `MICROSOFT_*` values take precedence.
-To avoid silent SSO redirects, you can set `MICROSOFT_PROMPT=select_account` (default) or `MICROSOFT_PROMPT=login` to force re-auth.
 
 After signing in, you can send emails using the form on the home page.
 
