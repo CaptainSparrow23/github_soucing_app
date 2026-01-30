@@ -14,6 +14,9 @@ import {
   webDarkTheme
 } from "@fluentui/react-components";
 import LightRays from "../components/LightRays";
+import LetterGlitch from "../components/LetterGlitch";
+import { MatrixRainingLetters } from "react-mdr";
+import React from "react";
 
 type ContributorResult = {
   name: string;
@@ -280,21 +283,21 @@ export default function Home() {
       <div className="relative min-h-screen bg-zinc-950 font-sans overflow-hidden text-blue-50">
         {/* Light rays background effect */}
         <div className="absolute inset-0 pointer-events-none z-0">
-          <LightRays
-            raysOrigin="top-center"
-            raysColor="#ffffff"
-            raysSpeed={1}
-            lightSpread={0.5}
-            rayLength={3}
-            followMouse={true}
-            mouseInfluence={0.1}
-            noiseAmount={0}
-            distortion={0}
-            className="custom-rays"
-            pulsating={false}
-            fadeDistance={1}
-            saturation={1}
-          />
+        
+  
+      {/* <LetterGlitch
+         glitchSpeed={50}
+         centerVignette={true}
+         outerVignette={false}
+         smooth={true}
+         glitchColors={['#2b4539', '#61dca3', '#61b3dc']}
+         characters="ABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$&*()-_+=/[]{};:<>.,0123456789"
+        
+         /> */}
+         <React.Fragment>
+            <MatrixRainingLetters key="foo-bar" custom_class="m-0 p-0" />
+        </React.Fragment>
+         
         </div>
         <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-8 px-6 py-12">
           <div className="flex flex-col gap-2">
@@ -305,12 +308,12 @@ export default function Home() {
               right for outreach.
             </p>
           </div>
-          <Card className="w-full max-w-3xl border border-blue-900/60 bg-zinc-900/80 shadow-xl backdrop-blur">
+          <Card className="w-full lg:w-3/5 border border-blue-900/60 bg-zinc-900/80 shadow-xl backdrop-blur">
             <CardHeader
               header={<span className="text-sm font-semibold text-blue-100">Microsoft Email</span>}
               description={
                 authStatus?.signedIn ? (
-                  <span className="text-xs text-blue-200">
+                  <span className="text-xs mt-2 text-blue-200">
                     Signed in as{" "}
                     <span className="font-semibold text-blue-100">
                       {authStatus.user?.displayName || authStatus.user?.mail || authStatus.user?.userPrincipalName}
@@ -321,7 +324,7 @@ export default function Home() {
                 )
               }
             />
-            <CardFooter className="flex flex-wrap items-center justify-between gap-4">
+            <CardFooter className="flex flex-wrap items-end justify-between gap-4">
               {authError && <p className="text-xs text-red-300">{authError}</p>}
               {authStatus?.signedIn ? (
                 <Button appearance="secondary" onClick={handleLogout}>
@@ -418,7 +421,7 @@ export default function Home() {
                 </Card>
               )}
             </div>
-            <div className="w-full lg:w-2/5 flex flex-col gap-5">
+            {/* <div className="w-full lg:w-2/5 flex flex-col gap-5">
               <Card className="border border-blue-900/60 bg-zinc-900/80 shadow-xl">
                 <CardHeader
                   header={<span className="text-lg font-semibold text-blue-100">Email defaults</span>}
@@ -564,7 +567,10 @@ export default function Home() {
               </Card>
             </div>
           </div>
+        </div> */}
+        </div>
         </div>
       </div>
     </FluentProvider>
   );
+}
