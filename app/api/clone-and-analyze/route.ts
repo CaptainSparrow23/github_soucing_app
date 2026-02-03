@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     logs += `Running git log in: ${targetDir}\n`;
     const output = execSync(
       'git log --pretty="%an|%ae" -- "*.cpp" "*.hpp" "*.cc" "*.cxx"',
-      { cwd: targetDir, encoding: 'utf-8' }
+      { cwd: targetDir, encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 }
     );
     logs += `Raw git output lines: ${output.split('\n').length}\n`;
     const lines = output.split('\n').filter(Boolean);

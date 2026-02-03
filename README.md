@@ -42,6 +42,28 @@ Legacy env vars (`OUTLOOK_*` and `MS_REDIRECT_URI`) are also supported but the `
 
 After signing in, you can send emails using the form on the home page.
 
+## LinkedIn resolve (optional)
+
+The results tables can optionally resolve each person to a specific LinkedIn profile URL (instead of just a search link) using Google Programmable Search (Custom Search JSON API).
+
+1. Create a Programmable Search Engine and copy its **Search engine ID (cx)**.
+2. Configure the engine to search the web (or restrict it), and add a site restriction like `linkedin.com/in`.
+3. In Google Cloud Console, enable **Custom Search API** and create an **API key**.
+4. Set these env vars (in `.env.local` or `.env`):
+
+```
+GOOGLE_CSE_API_KEY=your-google-api-key
+GOOGLE_CSE_CX=your-search-engine-id
+```
+
+In the UI, click **Resolve LinkedIn** above a results table. The resolver only runs for names that look like exactly `FirstName LastName`.
+
+To hard-cap spend, you can also set a simple app-side limit (per running server instance):
+
+```
+LINKEDIN_RESOLVE_DAILY_LIMIT=200
+```
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

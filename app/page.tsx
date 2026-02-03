@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -22,6 +21,7 @@ type ContributorResult = {
   name: string;
   email?: string;
   count: number;
+  linkedinUrl?: string | null;
 };
 
 let tabCounter = 0;
@@ -31,7 +31,138 @@ const nextTabId = () => {
   return `email-tab-${tabCounter}`;
 };
 
+
+const contributorKey = (row: Pick<ContributorResult, "name" | "email">) => `${row.name}|${row.email || ""}`;
+
+const isFirstLastName = (name: string) => {
+  const trimmed = name.trim();
+  if (!trimmed) return false;
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  if (parts.length !== 2) return false;
+  const tokenOk = (token: string) => /^[A-Za-z][A-Za-z'-]{1,}$/.test(token);
+  return tokenOk(parts[0]) && tokenOk(parts[1]);
+};
+
+
+// LinkedIn resolve helpers (no hooks here)
+const toggleSelectedKey = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, key: string) => {
+  setter((prev) => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    return next;
+  });
+};
+
+const setAllEligibleSelected = (rows: ContributorResult[], setter: React.Dispatch<React.SetStateAction<Set<string>>>) => {
+  const next = new Set<string>();
+  for (const row of rows) {
+    if (row.name && isFirstLastName(row.name)) next.add(contributorKey(row));
+  }
+  setter(next);
+};
+
+const clearSelected = (setter: React.Dispatch<React.SetStateAction<Set<string>>>) => setter(new Set());
+
+const applyLinkedInMatches = (rows: ContributorResult[], matches: Array<{ key: string; linkedinUrl: string | null }>) => {
+  const map = new Map(matches.map((m) => [m.key, m.linkedinUrl]));
+  return rows.map((row) => {
+    const key = contributorKey(row);
+    const linkedinUrl = map.get(key);
+    if (!linkedinUrl) return row;
+    if (row.linkedinUrl === linkedinUrl) return row;
+    return { ...row, linkedinUrl };
+  });
+};
+
+const resolveLinkedInForSelectedRows = async (
+  rows: ContributorResult[],
+  selected: Set<string>,
+  setter: React.Dispatch<React.SetStateAction<ContributorResult[]>>,
+  setRowsError: React.Dispatch<React.SetStateAction<string>>,
+  setLoading: React.Dispatch<React.SetStateAction<boolean>>
+) => {
+  setLoading(true);
+  setRowsError("");
+  try {
+    const people = rows.filter((row) => selected.has(contributorKey(row))).map((row) => ({ name: row.name, email: row.email }));
+    const res = await fetch("/api/linkedin-resolve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ people })
+    });
+    const data = (await res.json()) as { matches?: Array<{ key: string; linkedinUrl: string | null }>; error?: string };
+    if (!res.ok || !data.matches) {
+      setRowsError(data.error || "Failed to resolve LinkedIn profiles.");
+      setLoading(false);
+      return;
+    }
+    setter((prev) => applyLinkedInMatches(prev, data.matches || []));
+  } catch {
+    setRowsError("Failed to resolve LinkedIn profiles.");
+  }
+  setLoading(false);
+};
+
+
+
 export default function Home() {
+    // LinkedIn selection state for both tables
+    const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set());
+    const [linkedinLoading, setLinkedinLoading] = useState(false);
+    const [selectedKeys2, setSelectedKeys2] = useState<Set<string>>(() => new Set());
+    const [linkedinLoading2, setLinkedinLoading2] = useState(false);
+    // Email tabs and related state
+    const [emailTabs, setEmailTabs] = useState<Array<{
+      id: string;
+      to: string;
+      subject: string;
+      body: string;
+      attachments: File[];
+      status?: string;
+    }>>([]);
+    const [activeTabId, setActiveTabId] = useState<string | null>(null);
+    const [signatureHtml, setSignatureHtml] = useState("");
+    const [templateHtml, setTemplateHtml] = useState("");
+    const templateRef = useRef<HTMLDivElement | null>(null);
+    const signatureRef = useRef<HTMLDivElement | null>(null);
+    const [authError, setAuthError] = useState("");
+
+    // Helper for creating email tabs
+    const buildDefaultBody = (name?: string) => {
+      const signature = signatureHtml?.trim();
+      const template = templateHtml?.trim();
+      if (template) {
+        let body = template.replace(/{{\s*name\s*}}/gi, name || "there");
+        if (signature) {
+          const hasSignatureToken = /{{\s*signature\s*}}/gi.test(body);
+          body = body.replace(/{{\s*signature\s*}}/gi, signature);
+          if (!hasSignatureToken) {
+            body = `${body}\n${signature}`;
+          }
+        }
+        return body;
+      }
+      return `
+        <p>Hi ${name || "there"},</p>
+        <p>I found your C++ contributions and wanted to reach out about opportunities.</p>
+        ${signature || ""}
+      `;
+    };
+
+    const createEmailTab = (seed?: Partial<{ to: string; subject: string; body: string }>) => {
+      const id = typeof window !== "undefined" && typeof crypto !== "undefined" && "randomUUID" in crypto ? (crypto as any).randomUUID() : nextTabId();
+      const newTab = {
+        id,
+        to: seed?.to || "",
+        subject: seed?.subject || "C++ Opportunities",
+        body: seed?.body || buildDefaultBody(),
+        attachments: [] as File[],
+        status: ""
+      };
+      setEmailTabs((prev) => [...prev, newTab]);
+      setActiveTabId(id);
+    };
   // Auth is no longer required; removed auth check and login handler.
   const [repoUrl, setRepoUrl] = useState("");
   const [loading, setLoading] = useState(false);
@@ -39,6 +170,14 @@ export default function Home() {
   const [error, setError] = useState("");
   const [logs, setLogs] = useState("");
   const [mode, setMode] = useState<'api' | 'clone'>("api");
+  // Second repo state
+  const [repoUrl2, setRepoUrl2] = useState("");
+  const [loading2, setLoading2] = useState(false);
+  const [results2, setResults2] = useState<ContributorResult[]>([]);
+  const [error2, setError2] = useState("");
+  const [logs2, setLogs2] = useState("");
+  // Separate mode for repo 2
+  const [mode2, setMode2] = useState<'api' | 'clone'>("api");
   const [authStatus, setAuthStatus] = useState<{
     signedIn: boolean;
     user?: {
@@ -47,63 +186,6 @@ export default function Home() {
       userPrincipalName?: string;
     };
   } | null>(null);
-  const [authError, setAuthError] = useState("");
-  const [emailTabs, setEmailTabs] = useState<{
-    id: string;
-    to: string;
-    subject: string;
-    body: string;
-    attachments: File[];
-    status?: string;
-  }[]>([]);
-  const [activeTabId, setActiveTabId] = useState<string | null>(null);
-  const [signatureHtml, setSignatureHtml] = useState("");
-  const [templateHtml, setTemplateHtml] = useState("");
-  const templateRef = useRef<HTMLDivElement | null>(null);
-  const signatureRef = useRef<HTMLDivElement | null>(null);
-
-  const buildDefaultBody = (name?: string) => {
-    const signature = signatureHtml?.trim();
-    const template = templateHtml?.trim();
-    if (template) {
-      let body = template.replace(/{{\s*name\s*}}/gi, name || "there");
-      if (signature) {
-        const hasSignatureToken = /{{\s*signature\s*}}/gi.test(body);
-        body = body.replace(/{{\s*signature\s*}}/gi, signature);
-        if (!hasSignatureToken) {
-          body = `${body}\n${signature}`;
-        }
-      }
-      return body;
-    }
-    return `
-      <p>Hi ${name || "there"},</p>
-      <p>I found your C++ contributions and wanted to reach out about opportunities.</p>
-      ${signature || ""}
-    `;
-  };
-
-  // Hydration-safe ID generation for email tabs
-  const generateTabId = () => {
-    if (typeof window !== "undefined" && typeof crypto !== "undefined" && "randomUUID" in crypto) {
-      return crypto.randomUUID();
-    }
-    return nextTabId();
-  };
-
-  const createEmailTab = (seed?: Partial<{ to: string; subject: string; body: string }>) => {
-    const id = generateTabId();
-    const newTab = {
-      id,
-      to: seed?.to || "",
-      subject: seed?.subject || "C++ Opportunities",
-      body: seed?.body || buildDefaultBody(),
-      attachments: [] as File[],
-      status: ""
-    };
-    setEmailTabs((prev) => [...prev, newTab]);
-    setActiveTabId(id);
-  };
 
   const updateEmailTab = (
     id: string,
@@ -220,6 +302,46 @@ export default function Home() {
     setLoading(false);
   };
 
+  // Handler for second repo
+  const handleSubmit2 = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading2(true);
+    setError2("");
+    setResults2([]);
+    setLogs2("");
+    try {
+      let res: Response | undefined;
+      if (mode === "api") {
+        res = await fetch("/api/cpp-committers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ repoUrl: repoUrl2 })
+        });
+      } else if (mode === "clone") {
+        res = await fetch("/api/clone-and-analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ repoUrl: repoUrl2 })
+        });
+      }
+      if (!res) {
+        setError2("No response from server");
+        setLoading2(false);
+        return;
+      }
+      const data = (await res.json()) as { logs?: string; results?: ContributorResult[]; error?: string };
+      setLogs2(data.logs || "");
+      if (!res.ok) {
+        setError2(data.error || "Failed to fetch data");
+      } else {
+        setResults2(data.results || []);
+      }
+    } catch {
+      setError2("Failed to fetch data");
+    }
+    setLoading2(false);
+  };
+
   const handleLogout = async () => {
     setAuthError("");
     try {
@@ -299,7 +421,7 @@ export default function Home() {
         </React.Fragment>
          
         </div>
-        <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-8 px-6 py-12">
+        <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-12">
           <div className="flex flex-col gap-2">
             <p className="text-xs uppercase tracking-[0.4em] text-blue-400">Sourcing workspace</p>
             <h1 className="text-4xl font-extrabold text-blue-100">C++ Developer Sourcing Portal</h1>
@@ -308,7 +430,7 @@ export default function Home() {
               right for outreach.
             </p>
           </div>
-          <Card className="w-full lg:w-3/5 border border-blue-900/60 bg-zinc-900/80 shadow-xl backdrop-blur">
+          <Card className="w-356 border border-blue-900/60 bg-zinc-900/80 shadow-xl backdrop-blur">
             <CardHeader
               header={<span className="text-sm font-semibold text-blue-100">Microsoft Email</span>}
               description={
@@ -337,20 +459,22 @@ export default function Home() {
               )}
             </CardFooter>
           </Card>
-          <div className="flex w-full flex-1 flex-col gap-6 lg:flex-row">
-            <div className="w-full lg:w-3/5 flex flex-col gap-4">
-              <Card className="border border-blue-900/60 bg-zinc-900/80 shadow-xl">
-                <CardHeader
-                  header={<span className="text-sm font-semibold text-blue-100">Repository lookup</span>}
-                  description={<span className="text-xs text-blue-200">Choose how to analyze the repo.</span>}
-                />
-                <div className="px-5 pb-6">
-                  <TabList selectedValue={mode} onTabSelect={(_, data) => setMode(data.value as 'api' | 'clone')}>
-                    <Tab value="api">GitHub API</Tab>
-                    <Tab value="clone">Local Git</Tab>
-                  </TabList>
-                  <div className="mt-4">
-                    {mode === 'api' && (
+          <div className="flex w-full flex-1 flex-col gap-4 lg:flex-row">
+            {/* Side-by-side repo inputs */}
+            <div className="w-full flex flex-row gap-6 items-start justify-center lg:justify-start lg:flex-nowrap flex-wrap">
+              {/* Repo 1 */}
+              <div className="flex flex-col gap-2" style={{ minWidth: 700, maxWidth: 700, width: 700 }}>
+                <Card className="border border-blue-900/60 bg-zinc-900/80 shadow-xl">
+                  <CardHeader
+                    header={<span className="text-sm font-semibold text-blue-100">Repository 1 lookup</span>}
+                    description={<span className="text-xs text-blue-200">Analyze the first repo.</span>}
+                  />
+                  <div className="px-5 pb-6">
+                    <TabList selectedValue={mode} onTabSelect={(_, data) => setMode(data.value as 'api' | 'clone')}>
+                      <Tab value="api">GitHub API</Tab>
+                      <Tab value="clone">Local Git</Tab>
+                    </TabList>
+                    <div className="mt-4">
                       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                         <Input
                           placeholder="Paste GitHub repo URL..."
@@ -358,68 +482,184 @@ export default function Home() {
                           onChange={(_, data) => setRepoUrl(data.value)}
                         />
                         <Button appearance="primary" type="submit" disabled={loading}>
-                          {loading ? "Generating..." : "Generate"}
+                          {loading ? (mode === 'api' ? "Generating..." : "Analyzing...") : (mode === 'api' ? "Generate" : "Analyze")}
                         </Button>
                       </form>
-                    )}
-                    {mode === 'clone' && (
-                      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                        <Input
-                          placeholder="Paste GitHub repo URL to analyze (will use local if exists)"
-                          value={repoUrl}
-                          onChange={(_, data) => setRepoUrl(data.value)}
-                        />
-                        <Button appearance="primary" type="submit" disabled={loading}>
-                          {loading ? "Analyzing..." : "Analyze"}
-                        </Button>
-                      </form>
-                    )}
-                  </div>
-                </div>
-              </Card>
-              {error && <p className="text-red-300 mt-2">{error}</p>}
-              {logs && (
-                <Card className="border border-blue-900/60 bg-zinc-900/70">
-                  <div className="p-4 text-xs text-blue-200" style={{ maxHeight: 200 }}>
-                    <pre>{logs}</pre>
+                    </div>
                   </div>
                 </Card>
-              )}
-              {results.length > 0 && (
-                <Card className="border border-blue-900/60 bg-zinc-900/90 shadow-xl">
-                  <div className="overflow-hidden">
-                    <table className="w-full border-collapse text-sm">
-                      <thead>
-                        <tr className="bg-blue-900">
-                          <th className="border px-2 py-2 text-blue-200">Name</th>
-                          <th className="border px-2 py-2 text-blue-200">Email</th>
-                          <th className="border px-2 py-2 text-blue-200">C++ Commits</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {results.map((row, idx) => (
-                          <tr key={idx} className={idx % 2 === 0 ? "bg-zinc-800" : "bg-zinc-900"}>
-                            <td className="border px-2 py-2 text-blue-100">{row.name}</td>
-                            <td className="border px-2 py-2 text-blue-100">
-                              {row.email ? (
-                                <Button
-                                  appearance="subtle"
-                                  onClick={() => createEmailTab({ to: row.email, body: buildDefaultBody(row.name) })}
-                                >
-                                  {row.email}
-                                </Button>
-                              ) : (
-                                "-"
-                              )}
-                            </td>
-                            <td className="border px-2 py-2 text-blue-100">{row.count}</td>
+                {error && <p className="text-red-300 mt-2">{error}</p>}
+                {logs && (
+                  <Card className="border border-blue-900/60 bg-zinc-900/70">
+                    <div className="p-4 text-xs text-blue-200" style={{ maxHeight: 200 }}>
+                      <pre>{logs}</pre>
+                    </div>
+                  </Card>
+                )}
+                {results.length > 0 && (
+                  <Card className="border border-blue-900/60 bg-zinc-900/90 shadow-xl">
+                    <div className="overflow-hidden">
+                      <div className="flex gap-2 mb-2">
+                        <Button appearance="secondary" size="small" disabled={linkedinLoading || selectedKeys.size === 0} onClick={() => resolveLinkedInForSelectedRows(results, selectedKeys, setResults, setError, setLinkedinLoading)}>
+                          {linkedinLoading ? "Resolving LinkedIn..." : `Resolve LinkedIn (${selectedKeys.size})`}
+                        </Button>
+                        <Button appearance="secondary" size="small" disabled={linkedinLoading} onClick={() => setAllEligibleSelected(results, setSelectedKeys)}>
+                          Select eligible
+                        </Button>
+                        <Button appearance="secondary" size="small" disabled={linkedinLoading} onClick={() => clearSelected(setSelectedKeys)}>
+                          Clear
+                        </Button>
+                      </div>
+                      <table className="w-full border-collapse text-sm">
+                        <thead>
+                          <tr className="bg-blue-900">
+                            <th></th>
+                            <th className="border px-2 py-2 text-blue-200">Name</th>
+                            <th className="border px-2 py-2 text-blue-200">Email</th>
+                            <th className="border px-2 py-2 text-blue-200">C++ Commits</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {results.map((row, idx) => (
+                            <tr key={idx} className={idx % 2 === 0 ? "bg-zinc-800" : "bg-zinc-900"}>
+                              <td className="border px-2 py-2 text-blue-100">
+                                <input type="checkbox" checked={selectedKeys.has(contributorKey(row))} disabled={!row.name || !isFirstLastName(row.name)} title={!row.name || !isFirstLastName(row.name) ? "Only FirstName LastName rows can be resolved." : "Select row"} onChange={() => toggleSelectedKey(setSelectedKeys, contributorKey(row))} />
+                              </td>
+                              <td className="border px-2 py-2 text-blue-100">
+                                {row.linkedinUrl ? (
+                                  <a
+                                    href={row.linkedinUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline decoration-blue-400/70 underline-offset-2 hover:text-blue-200"
+                                    title="Open LinkedIn profile"
+                                  >
+                                    {row.name}
+                                  </a>
+                                ) : (
+                                  row.name
+                                )}
+                              </td>
+                              <td className="border px-2 py-2 text-blue-100">
+                                {row.email ? (
+                                  <Button
+                                    appearance="subtle"
+                                    onClick={() => createEmailTab({ to: row.email, body: buildDefaultBody(row.name) })}
+                                  >
+                                    {row.email}
+                                  </Button>
+                                ) : (
+                                  "-"
+                                )}
+                              </td>
+                              <td className="border px-2 py-2 text-blue-100">{row.count}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Card>
+                )}
+              </div>
+              {/* Repo 2 */}
+              <div className="flex flex-col gap-2" style={{ minWidth: 700, maxWidth: 700, width: 700  }}>
+                <Card className="border border-blue-900/60 bg-zinc-900/80 shadow-xl">
+                  <CardHeader
+                    header={<span className="text-sm font-semibold text-blue-100">Repository 2 lookup</span>}
+                    description={<span className="text-xs text-blue-200">Analyze a second repo.</span>}
+                  />
+                  <div className="px-5 pb-6">
+                    <TabList selectedValue={mode2} onTabSelect={(_, data) => setMode2(data.value as 'api' | 'clone')}>
+                      <Tab value="api">GitHub API</Tab>
+                      <Tab value="clone">Local Git</Tab>
+                    </TabList>
+                    <div className="mt-4">
+                      <form onSubmit={handleSubmit2} className="flex flex-col gap-4">
+                        <Input
+                          placeholder="Paste another GitHub repo URL..."
+                          value={repoUrl2}
+                          onChange={(_, data) => setRepoUrl2(data.value)}
+                        />
+                        <Button appearance="primary" type="submit" disabled={loading2}>
+                          {loading2 ? (mode2 === 'api' ? "Generating..." : "Analyzing...") : (mode2 === 'api' ? "Generate" : "Analyze")}
+                        </Button>
+                      </form>
+                    </div>
                   </div>
                 </Card>
-              )}
+                {error2 && <p className="text-red-300 mt-2">{error2}</p>}
+                {logs2 && (
+                  <Card className="border border-blue-900/60 bg-zinc-900/70">
+                    <div className="p-4 text-xs text-blue-200" style={{ maxHeight: 200 }}>
+                      <pre>{logs2}</pre>
+                    </div>
+                  </Card>
+                )}
+                {results2.length > 0 && (
+                  <Card className="border border-blue-900/60 bg-zinc-900/90 shadow-xl">
+                    <div className="overflow-hidden">
+                      <div className="flex gap-2 mb-2">
+                        <Button appearance="secondary" size="small" disabled={linkedinLoading2 || selectedKeys2.size === 0} onClick={() => resolveLinkedInForSelectedRows(results2, selectedKeys2, setResults2, setError2, setLinkedinLoading2)}>
+                          {linkedinLoading2 ? "Resolving LinkedIn..." : `Resolve LinkedIn (${selectedKeys2.size})`}
+                        </Button>
+                        <Button appearance="secondary" size="small" disabled={linkedinLoading2} onClick={() => setAllEligibleSelected(results2, setSelectedKeys2)}>
+                          Select eligible
+                        </Button>
+                        <Button appearance="secondary" size="small" disabled={linkedinLoading2} onClick={() => clearSelected(setSelectedKeys2)}>
+                          Clear
+                        </Button>
+                      </div>
+                      <table className="w-full border-collapse text-sm">
+                        <thead>
+                          <tr className="bg-blue-900">
+                            <th></th>
+                            <th className="border px-2 py-2 text-blue-200">Name</th>
+                            <th className="border px-2 py-2 text-blue-200">Email</th>
+                            <th className="border px-2 py-2 text-blue-200">C++ Commits</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {results2.map((row, idx) => (
+                            <tr key={idx} className={idx % 2 === 0 ? "bg-zinc-800" : "bg-zinc-900"}>
+                              <td className="border px-2 py-2 text-blue-100">
+                                <input type="checkbox" checked={selectedKeys2.has(contributorKey(row))} disabled={!row.name || !isFirstLastName(row.name)} title={!row.name || !isFirstLastName(row.name) ? "Only FirstName LastName rows can be resolved." : "Select row"} onChange={() => toggleSelectedKey(setSelectedKeys2, contributorKey(row))} />
+                              </td>
+                              <td className="border px-2 py-2 text-blue-100">
+                                {row.linkedinUrl ? (
+                                  <a
+                                    href={row.linkedinUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline decoration-blue-400/70 underline-offset-2 hover:text-blue-200"
+                                    title="Open LinkedIn profile"
+                                  >
+                                    {row.name}
+                                  </a>
+                                ) : (
+                                  row.name
+                                )}
+                              </td>
+                              <td className="border px-2 py-2 text-blue-100">
+                                {row.email ? (
+                                  <Button
+                                    appearance="subtle"
+                                    onClick={() => createEmailTab({ to: row.email, body: buildDefaultBody(row.name) })}
+                                  >
+                                    {row.email}
+                                  </Button>
+                                ) : (
+                                  "-"
+                                )}
+                              </td>
+                              <td className="border px-2 py-2 text-blue-100">{row.count}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Card>
+                )}
+              </div>
             </div>
             {/* <div className="w-full lg:w-2/5 flex flex-col gap-5">
               <Card className="border border-blue-900/60 bg-zinc-900/80 shadow-xl">
