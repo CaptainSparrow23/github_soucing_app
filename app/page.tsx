@@ -405,6 +405,7 @@ export default function Home() {
       <div className="relative min-h-screen bg-zinc-950 font-sans overflow-hidden text-blue-50">
         {/* Light rays background effect */}
         <div className="absolute inset-0 pointer-events-none z-0">
+      
         
   
       {/* <LetterGlitch
@@ -416,9 +417,9 @@ export default function Home() {
          characters="ABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$&*()-_+=/[]{};:<>.,0123456789"
         
          /> */}
-         <React.Fragment>
-            <MatrixRainingLetters key="foo-bar" custom_class="m-0 p-0" />
-        </React.Fragment>
+        <React.Fragment>
+             <MatrixRainingLetters key="foo-bar" custom_class="m-0 p-0" />
+         </React.Fragment>
          
         </div>
         <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-12">

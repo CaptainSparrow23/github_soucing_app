@@ -23,16 +23,18 @@ function getNextPageUrl(linkHeader: string | null): string | null {
 }
 
 export async function POST(req: Request) {
+  try {
+  
   const { repoUrl } = await req.json();
   let logs = "";
   logs += `Input repoUrl: ${repoUrl}\n`;
   const repo = parseRepoUrl(repoUrl);
   logs += `Parsed repo: ${JSON.stringify(repo)}\n`;
-  if (!repo) {
+   if (!repo) {
     logs += "Repo parsing failed.\n";
     return NextResponse.json({ error: "Invalid GitHub repo URL", logs }, { status: 400 });
   }
-
+  
   // Get commits from GitHub API
   const headers = {
     'Accept': 'application/vnd.github.v3+json',
@@ -47,7 +49,7 @@ export async function POST(req: Request) {
     logs += `Commits API status: ${commitsRes.status}\n`;
     if (!commitsRes.ok) {
       logs += `Commits API error: ${await commitsRes.text()}\n`;
-      return NextResponse.json({ error: "Failed to fetch commits", logs }, { status: 500 });
+      return NextResponse.json({ error: "Commit response error", logs }, { status: 500 });
     }
     const pageCommits = await commitsRes.json();
     logs += `Commits fetched: ${Array.isArray(pageCommits) ? pageCommits.length : 0}\n`;
@@ -97,5 +99,10 @@ export async function POST(req: Request) {
     .sort((a, b) => b.count - a.count);
 
   logs += `Final C++ committers: ${sorted.length}\n`;
+
+
   return NextResponse.json({ results: sorted, logs });
+} catch (err: any) {
+  return NextResponse.json({ error: err.message || "Unexpected error", logs: "" }, { status: 500 });
+}
 }
