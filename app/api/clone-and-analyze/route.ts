@@ -1,7 +1,22 @@
 import { NextResponse } from "next/server";
-import { existsSync, mkdirSync } from "fs";
+import { existsSync, mkdirSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
+import { execFileSync } from "child_process";
+
+export const runtime = "nodejs";
+
+function isGitRepo(dir: string): boolean {
+  try {
+    execFileSync("git", ["rev-parse", "--is-inside-work-tree"], {
+      cwd: dir,
+      stdio: "ignore",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export async function POST(req: Request) {
   const { repoUrl } = await req.json();
@@ -26,14 +41,24 @@ export async function POST(req: Request) {
   const targetDir = join(baseDir, `${owner}__${repo}`);
 
   // Clone if not already present
+  const log = (line: string) => {
+    logs += `${line}\n`;
+  };
+
+  const targetExists = existsSync(targetDir);
+  if (targetExists && !isGitRepo(targetDir)) {
+    log(`Existing folder is not a git repo; deleting and recloning: ${targetDir}`);
+    rmSync(targetDir, { recursive: true, force: true });
+  }
+
   if (!existsSync(targetDir)) {
     logs += `Cloning repo to ${targetDir}...\n`;
     try {
-      const { execSync } = require('child_process');
-      execSync(`git clone ${repoUrl} "${targetDir}"`, { stdio: 'pipe' });
+      execFileSync("git", ["clone", repoUrl, targetDir], { stdio: "pipe" });
       logs += "Clone successful.\n";
-    } catch (err: any) {
-      logs += `Clone failed: ${err.message || err}\n`;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      logs += `Clone failed: ${message}\n`;
       return NextResponse.json({ error: "Failed to clone repo", logs }, { status: 500 });
     }
   } else {
@@ -42,11 +67,11 @@ export async function POST(req: Request) {
 
   // Run git log analysis
   try {
-    const { execSync } = require('child_process');
     logs += `Running git log in: ${targetDir}\n`;
-    const output = execSync(
-      'git log --pretty="%an|%ae" -- "*.cpp" "*.hpp" "*.cc" "*.cxx"',
-      { cwd: targetDir, encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 }
+    const output = execFileSync(
+      "git",
+      ["log", "--pretty=%an|%ae", "--", "*.cpp", "*.hpp", "*.cc", "*.cxx"],
+      { cwd: targetDir, encoding: "utf-8", maxBuffer: 10 * 1024 * 1024 },
     );
     logs += `Raw git output lines: ${output.split('\n').length}\n`;
     const lines = output.split('\n').filter(Boolean);
@@ -60,8 +85,9 @@ export async function POST(req: Request) {
     const results = Object.values(map).sort((a, b) => b.count - a.count);
     logs += `Final C++ committers: ${results.length}\n`;
     return NextResponse.json({ results, logs });
-  } catch (err: any) {
-    logs += `Error: ${err.message || err}\n`;
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    logs += `Error: ${message}\n`;
     return NextResponse.json({ error: "Failed to run git command", logs }, { status: 500 });
   }
 }
