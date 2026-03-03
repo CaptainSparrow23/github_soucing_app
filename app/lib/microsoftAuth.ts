@@ -15,6 +15,8 @@ const MICROSOFT_SCOPES = [
   "User.Read",
   "Mail.Send"
 ].join(" ");
+const MICROSOFT_PROMPT =
+  process.env.MICROSOFT_PROMPT || "select_account";
 
 type MicrosoftOAuthConfig = {
   tenantId: string;
